@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<job name="SamepleJobName" isEnabled="true" ownerLoginName="sa" startStepID="1">
+  <steps>
+    <step id="1" name="Step1" subSystem="TransactSql" onSuccessAction="QuitWithSuccess" onSuccessStep="0" onFailAction="QuitWithFailure" onFailStep="0">
+    	<command>Blah
+    	</command>
+    </step>
+  </steps>
+</job>
