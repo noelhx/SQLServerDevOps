@@ -12,7 +12,7 @@ Write-Host "ConfigDir: $($ConfigDir)"
 
 Import-Module pscx
 
-function JobStep-Process(
+function Process-JobStep(
 	[System.Xml.XmlElement]$config,
 	[Microsoft.SqlServer.Management.SMO.Agent.Job]$job)
 {
@@ -212,7 +212,7 @@ function JobStep-Process(
 	}
 }
 
-function Job-Process(
+function Process-Job(
 	[System.Xml.XmlElement]$config,
 	[Microsoft.SqlServer.Management.Smo.Server]$server)
 {
@@ -388,7 +388,7 @@ function Job-Process(
 		}
 
 		Write-Debug "Adding/updating steps"
-		$config.steps.ChildNodes | ForEach-Object {JobStep-Process $_ $job}
+		$config.steps.ChildNodes | ForEach-Object {Process-JobStep $_ $job}
 		Write-Debug "Updating job"
 		$job.Alter()
 
@@ -424,7 +424,7 @@ function Job-Process(
 	}
 }
 
-function ProxyAccount-Process(
+function Process-ProxyAccount(
 	[System.Xml.XmlElement]$config,
 	[Microsoft.SqlServer.Management.Smo.Server]$server)
 {
@@ -497,7 +497,7 @@ function ProxyAccount-Process(
 }
 
 <#
-function JobSchedule-Process(
+function Process-JobSchedule(
 	[System.Xml.XmlElement]$config,
 	[Microsoft.SqlServer.Management.SMO.Agent.Job]$job)
 {
@@ -620,7 +620,7 @@ function JobSchedule-Process(
 }
 #>
 
-function JobCategory-Process(
+function Process-JobCategory(
 	[System.Xml.XmlElement]$config,
 	[Microsoft.SqlServer.Management.Smo.Server]$server)
 {
@@ -692,7 +692,7 @@ function JobCategory-Process(
 	}
 }
 
-function File-Process(
+function Process-File(
 	[string]$filename,
 	[Microsoft.SqlServer.Management.Smo.Server]$server)
 {
@@ -701,7 +701,7 @@ function File-Process(
 	Write-Debug "JobConfig:`n----------START----------`n$($config.OuterXml)`n-----------END-----------"
 
 	If ($config.job -ne $null) {
-		Job-Process $config.job $server
+		Process-Job $config.job $server
 	}
 	else
 	{
@@ -709,21 +709,27 @@ function File-Process(
 	}
 }
 
-function File-Check(
-	[string]$filename)
+function Check-File(
+	[string]$filename,
+	[string]$fileType)
 {
-	Write-Host -nonewline "Checking file $($filename) ... "
-	if (Test-Xml -Path $filename -SchemaPath SQLAgentDeployer.xsd) {
+	Write-Host -nonewline "Checking $($fileType) file $($filename) ... "
+
+	$SchemaPath = Split-Path $script:MyInvocation.MyCommand.Path
+	$SchemaFile = Join-Path -path $SchemaPath -childpath "SQLAgentDeployer$($fileType).xsd"
+	Write-Debug "XSD File: $($SchemaFile)"
+
+	if (Test-Xml -Path $filename -SchemaPath $SchemaFile) {
 		Write-Host "no errors found"
 		return $true
 	} else {
 		Write-Host "error(s) found"
-		Test-Xml -Path $filename -SchemaPath SQLAgentDeployer.xsd -Verbose
+		Test-Xml -Path $filename -SchemaPath $SchemaFile -Verbose
 		return $false
 	}
 }
 
-function SQLAgent-Deploy()
+function Deploy-SQLAgent()
 {
 	Write-Host "Starting"
 	Write-Host "Running as process $($PID)"
@@ -732,9 +738,7 @@ function SQLAgent-Deploy()
 
 	if (!$SkipFileCheck) {
 		Write-Host "Checking files"
-		$FileCheckResults = `
-			Get-ChildItem -Filter *.xml `
-			| ForEach-Object { File-Check $_ } `
+		$FileCheckResults = Get-ChildItem -Path $ConfigDir -Filter Job*.xml | ForEach-Object { Check-File $_ "Job" }
 	}
 	else {
 		Write-Host "Skipping file check"
@@ -745,7 +749,7 @@ function SQLAgent-Deploy()
 		Write-Host "All files passed checks"
 		$server = New-Object Microsoft.SqlServer.Management.Smo.Server($serverName)
 
-		Get-ChildItem -Filter Job*.xml | ForEach-Object { File-Process $_ $server }
+		Get-ChildItem -Filter Job*.xml | ForEach-Object { Process-File $_ $server }
 	}
 	else {
 		Write-Host "Error(s) found in file(s)"
@@ -755,4 +759,4 @@ function SQLAgent-Deploy()
 
 $DebugPreference = "SilentlyContinue"
 # $DebugPreference = "Continue"
-SQLAgent-Deploy
+Deploy-SQLAgent
