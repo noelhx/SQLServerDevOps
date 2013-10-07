@@ -1,147 +1,147 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-	<xs:element name="job">
-		<xs:complexType>				
-			<xs:sequence>
-				<xs:element name="description" minOccurs="0" maxOccurs="1" />
-				<xs:element name="steps" minOccurs="1" maxOccurs="1">
-					<xs:complexType>
-						<xs:sequence>
-							<xs:element name="step" minOccurs="1" maxOccurs="unbounded">
-								<xs:complexType>
-									<xs:sequence>
-										<xs:element name="command" type="xs:string" />
-									</xs:sequence>
+    <xs:element name="job">
+        <xs:complexType>                
+            <xs:sequence>
+                <xs:element name="description" minOccurs="0" maxOccurs="1" />
+                <xs:element name="steps" minOccurs="1" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="step" minOccurs="1" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="command" type="xs:string" />
+                                    </xs:sequence>
 
-									<xs:attribute name="id" type="xs:nonNegativeInteger" use="required" />
+                                    <xs:attribute name="id" type="xs:nonNegativeInteger" use="required" />
 
-									<xs:attribute name="name" type="xs:string" use="required" />
+                                    <xs:attribute name="name" type="xs:string" use="required" />
 
-									<xs:attribute name="subSystem" use="required">
-										<xs:simpleType>
-											<xs:restriction base="xs:string">
-												<xs:enumeration value="ActiveScripting" />
-												<xs:enumeration value="AnalysisCommand" />
-												<xs:enumeration value="AnalysisQuery" />
-												<xs:enumeration value="CmdExec" />
-												<xs:enumeration value="Distribution" />
-												<xs:enumeration value="LogReader" />
-												<xs:enumeration value="Merge" />
-												<xs:enumeration value="PowerShell" />
-												<xs:enumeration value="QueueReader" />
-												<xs:enumeration value="Snapshot" />
-												<xs:enumeration value="Ssis" />
-												<xs:enumeration value="TransactSql" />
-											</xs:restriction>
-										</xs:simpleType>
-									</xs:attribute>
+                                    <xs:attribute name="subSystem" use="required">
+                                        <xs:simpleType>
+                                            <xs:restriction base="xs:string">
+                                                <xs:enumeration value="ActiveScripting" />
+                                                <xs:enumeration value="AnalysisCommand" />
+                                                <xs:enumeration value="AnalysisQuery" />
+                                                <xs:enumeration value="CmdExec" />
+                                                <xs:enumeration value="Distribution" />
+                                                <xs:enumeration value="LogReader" />
+                                                <xs:enumeration value="Merge" />
+                                                <xs:enumeration value="PowerShell" />
+                                                <xs:enumeration value="QueueReader" />
+                                                <xs:enumeration value="Snapshot" />
+                                                <xs:enumeration value="Ssis" />
+                                                <xs:enumeration value="TransactSql" />
+                                            </xs:restriction>
+                                        </xs:simpleType>
+                                    </xs:attribute>
 
-									<xs:attribute name="onSuccessAction" use="required">
-										<xs:simpleType>
-											<xs:restriction base="xs:string">
-												<xs:enumeration value="GoToNextStep" />
-												<xs:enumeration value="GoToStep" />
-												<xs:enumeration value="QuitWithFailure" />
-												<xs:enumeration value="QuitWithSuccess" />
-											</xs:restriction>
-										</xs:simpleType>
-									</xs:attribute>
+                                    <xs:attribute name="onSuccessAction" use="required">
+                                        <xs:simpleType>
+                                            <xs:restriction base="xs:string">
+                                                <xs:enumeration value="GoToNextStep" />
+                                                <xs:enumeration value="GoToStep" />
+                                                <xs:enumeration value="QuitWithFailure" />
+                                                <xs:enumeration value="QuitWithSuccess" />
+                                            </xs:restriction>
+                                        </xs:simpleType>
+                                    </xs:attribute>
 
-									<xs:attribute name="onSuccessStep" type="xs:nonNegativeInteger" use="required" />
+                                    <xs:attribute name="onSuccessStep" type="xs:nonNegativeInteger" use="required" />
 
-									<xs:attribute name="onFailAction" use="required">
-										<xs:simpleType>
-											<xs:restriction base="xs:string">
-												<xs:enumeration value="GoToNextStep" />
-												<xs:enumeration value="GoToStep" />
-												<xs:enumeration value="QuitWithFailure" />
-												<xs:enumeration value="QuitWithSuccess" />
-											</xs:restriction>
-										</xs:simpleType>
-									</xs:attribute>
+                                    <xs:attribute name="onFailAction" use="required">
+                                        <xs:simpleType>
+                                            <xs:restriction base="xs:string">
+                                                <xs:enumeration value="GoToNextStep" />
+                                                <xs:enumeration value="GoToStep" />
+                                                <xs:enumeration value="QuitWithFailure" />
+                                                <xs:enumeration value="QuitWithSuccess" />
+                                            </xs:restriction>
+                                        </xs:simpleType>
+                                    </xs:attribute>
 
-									<xs:attribute name="onFailStep" type="xs:nonNegativeInteger" use="required" />
+                                    <xs:attribute name="onFailStep" type="xs:nonNegativeInteger" use="required" />
 
-									<xs:attribute name="retryAttempts" type="xs:nonNegativeInteger" />
+                                    <xs:attribute name="retryAttempts" type="xs:nonNegativeInteger" />
 
-									<xs:attribute name="retryInterval" type="xs:nonNegativeInteger" />
+                                    <xs:attribute name="retryInterval" type="xs:nonNegativeInteger" />
 
-									<xs:attribute name="proxyName" type="xs:string" />
+                                    <xs:attribute name="proxyName" type="xs:string" />
 
-									<xs:attribute name="databaseName" type="xs:string" />
+                                    <xs:attribute name="databaseName" type="xs:string" />
 
-									<xs:attribute name="databaseUserName" type="xs:string" />
+                                    <xs:attribute name="databaseUserName" type="xs:string" />
 
-									<xs:attribute name="commandExecutionSuccessCode" type="xs:nonNegativeInteger" />
-								</xs:complexType>
-							</xs:element>
-						</xs:sequence>
-					</xs:complexType>
-				</xs:element>
-			</xs:sequence>
+                                    <xs:attribute name="commandExecutionSuccessCode" type="xs:nonNegativeInteger" />
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
 
-			<xs:attribute name="name" type="xs:string" use="required" />
+            <xs:attribute name="name" type="xs:string" use="required" />
 
-			<xs:attribute name="category" type="xs:string" />
+            <xs:attribute name="category" type="xs:string" />
 
-			<xs:attribute name="ownerLoginName" type="xs:string" use="required" />
+            <xs:attribute name="ownerLoginName" type="xs:string" use="required" />
 
-			<xs:attribute name="startStepID" type="xs:nonNegativeInteger" use="required" />
+            <xs:attribute name="startStepID" type="xs:nonNegativeInteger" use="required" />
 
-			<xs:attribute name="isEnabled" use="required">
-				<xs:simpleType>
-					<xs:restriction base="xs:string">
-						<xs:enumeration value="true" />
-						<xs:enumeration value="false" />
-						<xs:enumeration value="" />
-					</xs:restriction>
-				</xs:simpleType>
-			</xs:attribute>
+            <xs:attribute name="isEnabled" use="required">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="true" />
+                        <xs:enumeration value="false" />
+                        <xs:enumeration value="" />
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
 
-			<xs:attribute name="emailLevel">
-				<xs:simpleType>
-					<xs:restriction base="xs:string">
-						<xs:enumeration value="Always" />
-						<xs:enumeration value="Never" />
-						<xs:enumeration value="OnFailure" />
-						<xs:enumeration value="OnSuccess" />
-					</xs:restriction>
-				</xs:simpleType>
-			</xs:attribute>
+            <xs:attribute name="emailLevel">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="Always" />
+                        <xs:enumeration value="Never" />
+                        <xs:enumeration value="OnFailure" />
+                        <xs:enumeration value="OnSuccess" />
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
 
-			<xs:attribute name="eventLogLevel">
-				<xs:simpleType>
-					<xs:restriction base="xs:string">
-						<xs:enumeration value="Always" />
-						<xs:enumeration value="Never" />
-						<xs:enumeration value="OnFailure" />
-						<xs:enumeration value="OnSuccess" />
-					</xs:restriction>
-				</xs:simpleType>
-			</xs:attribute>
+            <xs:attribute name="eventLogLevel">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="Always" />
+                        <xs:enumeration value="Never" />
+                        <xs:enumeration value="OnFailure" />
+                        <xs:enumeration value="OnSuccess" />
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
 
-			<xs:attribute name="netSendLevel">
-				<xs:simpleType>
-					<xs:restriction base="xs:string">
-						<xs:enumeration value="Always" />
-						<xs:enumeration value="Never" />
-						<xs:enumeration value="OnFailure" />
-						<xs:enumeration value="OnSuccess" />
-					</xs:restriction>
-				</xs:simpleType>
-			</xs:attribute>
+            <xs:attribute name="netSendLevel">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="Always" />
+                        <xs:enumeration value="Never" />
+                        <xs:enumeration value="OnFailure" />
+                        <xs:enumeration value="OnSuccess" />
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
 
-			<xs:attribute name="pageLevel">
-				<xs:simpleType>
-					<xs:restriction base="xs:string">
-						<xs:enumeration value="Always" />
-						<xs:enumeration value="Never" />
-						<xs:enumeration value="OnFailure" />
-						<xs:enumeration value="OnSuccess" />
-					</xs:restriction>
-				</xs:simpleType>
-			</xs:attribute>
+            <xs:attribute name="pageLevel">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="Always" />
+                        <xs:enumeration value="Never" />
+                        <xs:enumeration value="OnFailure" />
+                        <xs:enumeration value="OnSuccess" />
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
 
-		</xs:complexType>
-	</xs:element>
+        </xs:complexType>
+    </xs:element>
 </xs:schema>
