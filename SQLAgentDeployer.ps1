@@ -3,9 +3,18 @@ param(
 	[string]$ConfigDir = ".",
 	[boolean]$SkipFileCheck = $false,
 	# [boolean]$SkipFileCheck = $true,
-	[boolean]$CheckOnly = $false)
-Write-Host "ServerName: $($serverName)"
-Write-Host "ConfigDir: $($ConfigDir)"
+	[boolean]$CheckOnly = $false,
+	[boolean]$Recursive = $false,
+	[boolean]$PrintParams = $true,
+	[boolean]$TransactionsByObject = $false)
+If ($PrintParams) {
+	Write-Host "ServerName: $($serverName)"
+	Write-Host "ConfigDir: $($ConfigDir)"
+	Write-Host "SkipFileCheck: $($SkipFileCheck)"
+	Write-Host "CheckOnly: $($CheckOnly)"
+	Write-Host "Recursive: $($Recursive)"
+	Write-Host "TransactionsByObject: $($TransactionsByObject)"
+}
 
 [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMO') | out-null
 [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.Management.SMO.Agent') | out-null
@@ -13,23 +22,23 @@ Write-Host "ConfigDir: $($ConfigDir)"
 Import-Module pscx
 
 function Process-JobStep(
+	[string]$jobName,
 	[System.Xml.XmlElement]$config,
 	[Microsoft.SqlServer.Management.SMO.Agent.Job]$job)
 {
-	Write-Host "Processing job step $($config.id)"
-	Write-Debug "JobStepConfig:`n----------START----------`n$($config.OuterXml)`n-----------END-----------"
+	Write-Host "Processing job step [$($jobName)].[$($config.name)]"
 
 	Write-Host -nonewline "Checking to see if job step already exists ... "
 	$jobStep = $job.JobSteps | Where-Object {$_.ID -eq $config.id}
 	if (!$jobStep)
 	{   
-		Write-Host "it does not exist"
+		Write-Host -nonewline "it does not exist ... "
 		$jobStep = New-Object Microsoft.SqlServer.Management.SMO.Agent.JobStep($job, $config.name)
 		$jobStep.ID = $config.id
 		$isNewJobStep = $true
 	}
 	else {
-		Write-Host "it exists"
+		Write-Host -nonewline "it exists ... "
 		$isNewJobStep = $false
 	}
 
@@ -203,296 +212,282 @@ function Process-JobStep(
 	# OutputFileName
 
 	if ($isNewJobStep) {
-		Write-Debug "Creating job step"
+		Write-Host "creating"
 		$jobStep.Create()
 	}
 	else {
-		Write-Debug "Altering job step"
+		Write-Host "altering"
 		$jobStep.Alter()
 	}
 }
 
 function Process-Job(
 	[System.Xml.XmlElement]$config,
-	[Microsoft.SqlServer.Management.Smo.Server]$server)
+	[Microsoft.SqlServer.Management.Smo.Agent.JobServer]$jobServer)
 {
-	Write-Host "Processing job [$($config.name)]"
-	Write-Debug "JobConfig:`n----------START----------`n$($config.OuterXml)`n-----------END-----------"
-
-	Write-Debug "Starting transaction"
-	try {
-		$server.ConnectionContext.BeginTransaction()
-
-		Write-Host -nonewline "Checking to see if job already exists ... "
-		$job = $server.JobServer.Jobs | Where-Object { $_.name -eq $config.name }
-		if (!$job) {
-			# If it does not already exist
-			Write-Host "it does not"
-			$job = New-Object Microsoft.SqlServer.Management.SMO.Agent.Job($server.JobServer, $config.name)
-			$isNewJob = $true
-		}
-		else {
-			Write-Host "it does"
-			$isNewJob = $false
-		}
-
-		# OperatorToEmail
-		# OperatorToNetSend
-		# OperatorToPage
-
-		Write-Debug "Description: $($config.description)"
-		$job.Description = $config.description
-
-		Write-Debug "IsEnabled: $($config.isEnabled)"
-		if ($config.isEnabled) {
-			if ($config.isEnabled -eq "true") {
-				$job.IsEnabled = $true
-			}
-			elseif ($config.isEnabled -eq "false") {
-				$job.IsEnabled = $false
-			}
-			elseif ($config.isEnabled -eq "") {
-				Write-Debug "Leaving IsEnabled as is because it is an empty string"
-			}
-			else {
-				Write-Debug "Throwing exception because IsEnabled is set to unhandled value ($($config.isEnabled))"
-				throw "IsEnabled is set to unhandled value ($($config.isEnabled))"
-			}
-		}
-		else {
-			Write-Debug "Leaving IsEnabled as is because there is no attribute"
-		}
-
-		Write-Debug "EmailLevel: $($config.emailLevel)"
-		if ($config.emailLevel) {
-			if ($config.emailLevel -eq "Always") {
-				$job.EmailLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Always
-			}
-			elseif ($config.emailLevel -eq "Never") {
-				$job.EmailLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Never
-			}
-			elseif ($config.emailLevel -eq "OnFailure") {
-				$job.EmailLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnFailure
-			}
-			elseif ($config.emailLevel -eq "OnSuccess") {
-				$job.EmailLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnSuccess
-			}
-			elseif ($config.emailLevel -eq "") {
-				Write-Debug "Leaving EmailLevel as is because it is an empty string"
-			}
-			else {
-				Write-Debug "Throwing exception because EmailLevel is set to unhandled value ($($config.emailLevel))"
-				throw "EmailLevel is set to unhandled value ($($config.emailLevel))"
-			}
-		}
-		else {
-			Write-Debug "Leaving EmailLevel as is because there is no attribute"
-		}
-
-		Write-Debug "EventLogLevel: $($config.eventLogLevel)"
-		if ($config.eventLogLevel) {
-			if ($config.eventLogLevel -eq "Always") {
-				$job.EventLogLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Always
-			}
-			elseif ($config.eventLogLevel -eq "Never") {
-				$job.EventLogLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Never
-			}
-			elseif ($config.eventLogLevel -eq "OnFailure") {
-				$job.EventLogLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnFailure
-			}
-			elseif ($config.eventLogLevel -eq "OnSuccess") {
-				$job.EventLogLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnSuccess
-			}
-			elseif ($config.eventLogLevel -eq "") {
-				Write-Debug "Leaving EventLogLevel as is because it is an empty string"
-			}
-			else {
-				Write-Debug "Throwing exception because EventLogLevel is set to unhandled value ($($config.eventLogLevel))"
-				throw "EventLogLevel is set to unhandled value ($($config.eventLogLevel))"
-			}
-		}
-		else {
-			Write-Debug "Leaving EventLogLevel as is because there is no attribute"
-		}
-
-		Write-Debug "NetSendLevel: $($config.netSendLevel)"
-		if ($config.netSendLevel) {
-			if ($config.netSendLevel -eq "Always") {
-				$job.NetSendLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Always
-			}
-			elseif ($config.netSendLevel -eq "Never") {
-				$job.NetSendLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Never
-			}
-			elseif ($config.netSendLevel -eq "OnFailure") {
-				$job.NetSendLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnFailure
-			}
-			elseif ($config.netSendLevel -eq "OnSuccess") {
-				$job.NetSendLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnSuccess
-			}
-			elseif ($config.netSendLevel -eq "") {
-				Write-Debug "Leaving NetSendLevel as is because it is an empty string"
-			}
-			else {
-				Write-Debug "Throwing exception because NetSendLevel is set to unhandled value ($($config.netSendLevel))"
-				throw "NetSendLevel is set to unhandled value ($($config.netSendLevel))"
-			}
-		}
-		else {
-			Write-Debug "Leaving NetSendLevel as is because there is no attribute"
-		}
-
-		Write-Debug "PageLevel: $($config.pageLevel)"
-		if ($config.pageLevel) {
-			if ($config.pageLevel -eq "Always") {
-				$job.PageLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Always
-			}
-			elseif ($config.pageLevel -eq "Never") {
-				$job.PageLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Never
-			}
-			elseif ($config.pageLevel -eq "OnFailure") {
-				$job.PageLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnFailure
-			}
-			elseif ($config.pageLevel -eq "OnSuccess") {
-				$job.PageLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnSuccess
-			}
-			elseif ($config.pageLevel -eq "") {
-				Write-Debug "Leaving PageLevel as is because it is an empty string"
-			}
-			else {
-				Write-Debug "Throwing exception because PageLevel is set to unhandled value ($($config.pageLevel))"
-				throw "PageLevel is set to unhandled value ($($config.pageLevel))"
-			}
-		}
-		else {
-			Write-Debug "Leaving PageLevel as is because there is no attribute"
-		}
-
-		Write-Debug "OwnerLoginName: $($config.ownerLoginName)"
-		if ($config.ownerLoginName) {
-			$login = $server.Logins | Where-Object { $_.Name -eq $config.ownerLoginName }
-			if ($login) {
-				$job.OwnerLoginName = $config.ownerLoginName
-			}
-			else {
-				Write-Debug "Unable to find owner login for job ($($config.ownerLoginName))"
-				throw "Unable to find owner login for job ($($config.ownerLoginName))"
-			}
-		}
-
-		if ($isNewJob) {
-			Write-Host "Creating job"
-			$job.Create() }
-		 else {
-			Write-Host "Altering job"
-			$job.Alter()
-		}
-
-		Write-Debug "Adding/updating steps"
-		$config.steps.ChildNodes | ForEach-Object {Process-JobStep $_ $job}
-		Write-Debug "Updating job"
-		$job.Alter()
-
-		Write-Debug "Getting job steps to remove"
-		$jobStepsToRemove = $job.JobSteps | Where-Object { $config.steps.ChildNodes.ID -notcontains $_.ID }
-		Write-Debug "Dropping job steps"
-		$jobStepsToRemove | ForEach-Object { $_.Drop() }        
-		Write-Debug "Updating job"
-		$job.Alter()
-
-		<#
-			We do this after the steps to make sure the start step is there
-		#>
-		$StartStep = $job.JobSteps | Where-Object { $_.ID -eq $config.startStepID }
-		if ($StartStep) {
-			Write-Debug "Setting start job step to $($config.startStepID)"
-			$job.StartStepID = $config.startStepID
-		}
-		else {
-			Write-Debug "Unable to find job start step ($($config.startStepID))"
-			throw "Unable to find job start step ($($config.startStepID))"
-		}
-
-		Write-Debug "Committing transaction"
-		$server.ConnectionContext.CommitTransaction()
+	Write-Host -nonewline "Checking to see if job already exists ... "
+	$job = $jobServer.Jobs | Where-Object { $_.name -eq $config.name }
+	if (!$job) {
+		# If it does not already exist
+		Write-Host "it does not"
+		$job = New-Object Microsoft.SqlServer.Management.SMO.Agent.Job($jobServer, $config.name)
+		$isNewJob = $true
 	}
-	catch [System.Exception] {
-		Write-Host "ERROR: Rolling back transaction"
-		$server.ConnectionContext.RollBackTransaction()
-		$e = $_
-		while ($e.InnerException -and !$e.Message) { $e = $e.InnerException }
-		Write-Host $e.Message
+	else {
+		Write-Host "it does"
+		$isNewJob = $false
 	}
+
+	# OperatorToEmail
+	# OperatorToNetSend
+	# OperatorToPage
+
+	Write-Debug "Description: $($config.description)"
+	$job.Description = $config.description
+
+	Write-Debug "IsEnabled: $($config.isEnabled)"
+	if ($config.isEnabled) {
+		if ($config.isEnabled -eq "true") {
+			$job.IsEnabled = $true
+		}
+		elseif ($config.isEnabled -eq "false") {
+			$job.IsEnabled = $false
+		}
+		elseif ($config.isEnabled -eq "") {
+			Write-Debug "Leaving IsEnabled as is because it is an empty string"
+		}
+		else {
+			Write-Debug "Throwing exception because IsEnabled is set to unhandled value ($($config.isEnabled))"
+			throw "IsEnabled is set to unhandled value ($($config.isEnabled))"
+		}
+	}
+	else {
+		Write-Debug "Leaving IsEnabled as is because there is no attribute"
+	}
+
+	Write-Debug "category: $($config.category)"
+	if ($config.category) {
+		Write-Debug "Checking to see if category already exists"
+		$category = $jobServer.JobCategories | Where-Object { $_.Name -eq $config.category }
+		if ($config) {
+			Write-Debug "It does"
+		}
+		else {
+			Write-Debug "It does not, creating"
+		    $category = New-Object Microsoft.SqlServer.Management.SMO.Agent.JobCategory($jobServer, $config.category)
+		}
+		$job.category = $config.category
+	}
+
+	Write-Debug "EmailLevel: $($config.emailLevel)"
+	if ($config.emailLevel) {
+		if ($config.emailLevel -eq "Always") {
+			$job.EmailLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Always
+		}
+		elseif ($config.emailLevel -eq "Never") {
+			$job.EmailLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Never
+		}
+		elseif ($config.emailLevel -eq "OnFailure") {
+			$job.EmailLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnFailure
+		}
+		elseif ($config.emailLevel -eq "OnSuccess") {
+			$job.EmailLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnSuccess
+		}
+		elseif ($config.emailLevel -eq "") {
+			Write-Debug "Leaving EmailLevel as is because it is an empty string"
+		}
+		else {
+			Write-Debug "Throwing exception because EmailLevel is set to unhandled value ($($config.emailLevel))"
+			throw "EmailLevel is set to unhandled value ($($config.emailLevel))"
+		}
+	}
+	else {
+		Write-Debug "Leaving EmailLevel as is because there is no attribute"
+	}
+
+	Write-Debug "EventLogLevel: $($config.eventLogLevel)"
+	if ($config.eventLogLevel) {
+		if ($config.eventLogLevel -eq "Always") {
+			$job.EventLogLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Always
+		}
+		elseif ($config.eventLogLevel -eq "Never") {
+			$job.EventLogLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Never
+		}
+		elseif ($config.eventLogLevel -eq "OnFailure") {
+			$job.EventLogLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnFailure
+		}
+		elseif ($config.eventLogLevel -eq "OnSuccess") {
+			$job.EventLogLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnSuccess
+		}
+		elseif ($config.eventLogLevel -eq "") {
+			Write-Debug "Leaving EventLogLevel as is because it is an empty string"
+		}
+		else {
+			Write-Debug "Throwing exception because EventLogLevel is set to unhandled value ($($config.eventLogLevel))"
+			throw "EventLogLevel is set to unhandled value ($($config.eventLogLevel))"
+		}
+	}
+	else {
+		Write-Debug "Leaving EventLogLevel as is because there is no attribute"
+	}
+
+	Write-Debug "NetSendLevel: $($config.netSendLevel)"
+	if ($config.netSendLevel) {
+		if ($config.netSendLevel -eq "Always") {
+			$job.NetSendLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Always
+		}
+		elseif ($config.netSendLevel -eq "Never") {
+			$job.NetSendLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Never
+		}
+		elseif ($config.netSendLevel -eq "OnFailure") {
+			$job.NetSendLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnFailure
+		}
+		elseif ($config.netSendLevel -eq "OnSuccess") {
+			$job.NetSendLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnSuccess
+		}
+		elseif ($config.netSendLevel -eq "") {
+			Write-Debug "Leaving NetSendLevel as is because it is an empty string"
+		}
+		else {
+			Write-Debug "Throwing exception because NetSendLevel is set to unhandled value ($($config.netSendLevel))"
+			throw "NetSendLevel is set to unhandled value ($($config.netSendLevel))"
+		}
+	}
+	else {
+		Write-Debug "Leaving NetSendLevel as is because there is no attribute"
+	}
+
+	Write-Debug "PageLevel: $($config.pageLevel)"
+	if ($config.pageLevel) {
+		if ($config.pageLevel -eq "Always") {
+			$job.PageLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Always
+		}
+		elseif ($config.pageLevel -eq "Never") {
+			$job.PageLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::Never
+		}
+		elseif ($config.pageLevel -eq "OnFailure") {
+			$job.PageLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnFailure
+		}
+		elseif ($config.pageLevel -eq "OnSuccess") {
+			$job.PageLevel = [Microsoft.SqlServer.Management.SMO.Agent.CompletionAction]::OnSuccess
+		}
+		elseif ($config.pageLevel -eq "") {
+			Write-Debug "Leaving PageLevel as is because it is an empty string"
+		}
+		else {
+			Write-Debug "Throwing exception because PageLevel is set to unhandled value ($($config.pageLevel))"
+			throw "PageLevel is set to unhandled value ($($config.pageLevel))"
+		}
+	}
+	else {
+		Write-Debug "Leaving PageLevel as is because there is no attribute"
+	}
+
+	Write-Debug "OwnerLoginName: $($config.ownerLoginName)"
+	if ($config.ownerLoginName) {
+		$login = $jobServer.Parent.Logins | Where-Object { $_.Name -eq $config.ownerLoginName }
+		if ($login) {
+			$job.OwnerLoginName = $config.ownerLoginName
+		}
+		else {
+			Write-Debug "Unable to find owner login for job ($($config.ownerLoginName))"
+			throw "Unable to find owner login for job ($($config.ownerLoginName))"
+		}
+	}
+
+	if ($isNewJob) {
+		Write-Host "Creating job"
+		$job.Create() }
+	 else {
+		Write-Host "Altering job"
+		$job.Alter()
+	}
+
+	Write-Debug "Adding/updating steps"
+	$config.steps.ChildNodes | ForEach-Object {Process-JobStep $config.name $_ $job}
+	Write-Debug "Updating job"
+	$job.Alter()
+
+	Write-Debug "Getting job steps to remove"
+	$jobStepsToRemove = $job.JobSteps | Where-Object { $config.steps.ChildNodes.ID -notcontains $_.ID }
+	Write-Debug "Dropping job steps"
+	$jobStepsToRemove | ForEach-Object { $_.Drop() }        
+	Write-Debug "Updating job"
+	$job.Alter()
+
+	<#
+		We do this after the steps to make sure the start step is there
+	#>
+	$StartStep = $job.JobSteps | Where-Object { $_.ID -eq $config.startStepID }
+	if ($StartStep) {
+		Write-Debug "Setting start job step to $($config.startStepID)"
+		$job.StartStepID = $config.startStepID
+	}
+	else {
+		Write-Debug "Unable to find job start step ($($config.startStepID))"
+		throw "Unable to find job start step ($($config.startStepID))"
+	}
+	Write-Debug "Updating job"
+	$job.Alter()
 }
 
 function Process-ProxyAccount(
 	[System.Xml.XmlElement]$config,
-	[Microsoft.SqlServer.Management.Smo.Server]$server)
+	[Microsoft.SqlServer.Management.Smo.Agent.JobServer]$jobServer)
 {
 	Write-Host "Processing proxy account [$($config.name)]"
 	Write-Debug "ProxyAccountConfig:`n----------START----------`n$($config.OuterXml)`n-----------END-----------"
 
-	Write-Debug "Starting transaction"
-	try {
-		$server.ConnectionContext.BeginTransaction()
+	Write-Debug "credentialName: $($config.credentialName)"
+	$credential = $jobServer.Parent.Credentials | Where-Object { $_.Name -eq $config.credentialName }
+	if (!$credential) {
+		throw "Could not find credential [$($config.credentialName)]"
+	}
 
-		Write-Debug "credentialName: $($config.credentialName)"
-		$credential = $server.Parent.Credentials | Where-Object { $_.Name -eq $config.credentialName }
-		if (!$credential) {
-			throw "Could not find credential [$($config.credentialName)]"
+	Write-Host -nonewline "Checking to see if proxy account already exists ... "
+	$proxyAccount = $jobServer.ProxyAccounts | Where-Object { $_.name -eq $config.name }
+	if (!$proxyAccount) {
+		Write-Host "it does not, creating"
+
+		Write-Debug "isEnabled: $($config.isEnabled)"
+		if ($config.isEnabled -eq "true" -or $config.isEnabled -eq "") {
+			Write-Debug "Setting enabled to true"
+			$enabled = $true
 		}
-
-		Write-Host -nonewline "Checking to see if proxy account already exists ... "
-		$proxyAccount = $server.JobServer.ProxyAccounts | Where-Object { $_.name -eq $config.name }
-		if (!$proxyAccount) {
-			Write-Host "it does not, creating"
-
-			Write-Debug "isEnabled: $($config.isEnabled)"
-			if ($config.isEnabled -eq "true" -or $config.isEnabled -eq "") {
-				Write-Debug "Setting enabled to true"
-				$enabled = $true
-			}
-			elseif ($config.isEnabled -eq "false") {
-				Write-Debug "Setting enabled to false"
-				$enabled = $false
-			}
-			else {
-				Write-Debug "isEnabled set to unhandled value ($($config.isEnabled))"
-				throw "isEnabled set to unhandled value ($($config.isEnabled))"
-			}
-
-			$proxyAccount = New-Object Microsoft.SqlServer.Management.SMO.Agent.ProxyAccount(
-				$server.JobServer,
-				$config.name,
-				$config.credentialName,
-				$enabled,
-				$config.description)
+		elseif ($config.isEnabled -eq "false") {
+			Write-Debug "Setting enabled to false"
+			$enabled = $false
 		}
 		else {
-			Write-Host "it does, updating"
-			$proxyAccount.CredentialName = $config.credentialName
-			if ($config.isEnabled -eq "true") {
-				$proxyAccount.IsEnabled = $true
-			}
-			elseif ($config.isEnabled -eq "false") {
-				$proxyAccount.IsEnabled = $false
-			}
-			elseif ($config.isEnabled -eq "") {
-				Write-Debug "Leaving IsEnabled as is"
-			}
-			else {
-				Write-Debug "isEnabled set to unhandled value ($($config.isEnabled))"
-				throw "isEnabled set to unhandled value ($($config.isEnabled))"                
-			}
-
-			$proxyAccount.Description = $config.Description
+			Write-Debug "isEnabled set to unhandled value ($($config.isEnabled))"
+			throw "isEnabled set to unhandled value ($($config.isEnabled))"
 		}
+
+		$proxyAccount = New-Object Microsoft.SqlServer.Management.SMO.Agent.ProxyAccount(
+			$jobServer,
+			$config.name,
+			$config.credentialName,
+			$enabled,
+			$config.description)
 	}
-	catch [System.Exception] {
-		Write-Host "ERROR: Rolling back transaction"
-		$server.ConnectionContext.RollBackTransaction()
-		$e = $_
-		while ($e.InnerException -and !$e.Message) { $e = $e.InnerException }
-		Write-Host $e.Message
+	else {
+		Write-Host "it does, updating"
+		$proxyAccount.CredentialName = $config.credentialName
+		if ($config.isEnabled -eq "true") {
+			$proxyAccount.IsEnabled = $true
+		}
+		elseif ($config.isEnabled -eq "false") {
+			$proxyAccount.IsEnabled = $false
+		}
+		elseif ($config.isEnabled -eq "") {
+			Write-Debug "Leaving IsEnabled as is"
+		}
+		else {
+			Write-Debug "isEnabled set to unhandled value ($($config.isEnabled))"
+			throw "isEnabled set to unhandled value ($($config.isEnabled))"                
+		}
+
+		$proxyAccount.Description = $config.Description
 	}
 }
 
@@ -622,65 +617,53 @@ function Process-JobSchedule(
 
 function Process-JobCategory(
 	[System.Xml.XmlElement]$config,
-	[Microsoft.SqlServer.Management.Smo.Server]$server)
+	[Microsoft.SqlServer.Management.Smo.Agent.JobServer]$jobServer)
 {
-	Write-Host "Processing proxy account [$($config.name)]"
-	Write-Debug "jobCategoryConfig:`n----------START----------`n$($config.OuterXml)`n-----------END-----------"
+	Write-Host -nonewline "Checking to see if job category already exists ... "
+	$jobCategory = $jobServer.JobCategories | Where-Object { $_.name -eq $config.name }
+	if (!$jobCategory) {
+		Write-Host "it does not, creating"
 
-	Write-Debug "Starting transaction"
+		$jobCategory = New-Object Microsoft.SqlServer.Management.SMO.Agent.JobCategory(
+			$jobServer,
+			$config.name)
+	}
+	else {
+		Write-Host "it does, skipping"
+	}
+}
+
+function Process-File(
+	[string]$filename,
+	[Microsoft.SqlServer.Management.Smo.Agent.JobServer]$jobServer)
+{
+	Write-Host "Processing file $($filename)"   
+	[xml]$config = Get-Content $filename
+	Write-Debug "JobConfig:`n----------START----------`n$($config.OuterXml)`n-----------END-----------"
+
 	try {
-		$server.ConnectionContext.BeginTransaction()
-
-		Write-Debug "credentialName: $($config.credentialName)"
-		$credential = $server.Parent.Credentials | Where-Object { $_.Name -eq $config.credentialName }
-		if (!$credential) {
-			throw "Could not find credential [$($config.credentialName)]"
+		if (!$TransactionsByObject) {
+			Write-Debug "Starting transaction"
+			$jobServer.Parent.ConnectionContext.BeginTransaction()
 		}
 
-		Write-Host -nonewline "Checking to see if job already exists ... "
-		$jobCategory = $server.JobServer.jobCategorys | Where-Object { $_.name -eq $config.name }
-		if (!$jobCategory) {
-			Write-Host "it does not, creating"
-
-			Write-Debug "isEnabled: $($config.isEnabled)"
-			if ($config.isEnabled -eq "true" -or $config.isEnabled -eq "") {
-				Write-Debug "Setting enabled to true"
-				$enabled = $true
-			}
-			elseif ($config.isEnabled -eq "false") {
-				Write-Debug "Setting enabled to false"
-				$enabled = $false
-			}
-			else {
-				Write-Debug "isEnabled set to unhandled value ($($config.isEnabled))"
-				throw "isEnabled set to unhandled value ($($config.isEnabled))"
-			}
-
-			$jobCategory = New-Object Microsoft.SqlServer.Management.SMO.Agent.jobCategory(
-				$server.JobServer,
-				$config.name,
-				$config.credentialName,
-				$enabled,
-				$config.description)
+		If ($config.job) {
+			Process-Job $config.job $jobServer
 		}
-		else {
-			Write-Host "it does, updating"
-			$jobCategory.CredentialName = $config.credentialName
-			if ($config.isEnabled -eq "true") {
-				$jobCategory.IsEnabled = $true
-			}
-			elseif ($config.isEnabled -eq "false") {
-				$jobCategory.IsEnabled = $false
-			}
-			elseif ($config.isEnabled -eq "") {
-				Write-Debug "Leaving IsEnabled as is"
-			}
-			else {
-				Write-Debug "isEnabled set to unhandled value ($($config.isEnabled))"
-				throw "isEnabled set to unhandled value ($($config.isEnabled))"                
-			}
+		elseif ($config.jobCategory) {
+			Process-JobCategory $config.jobCategory $jobServer
+		}
+		elseif ($config.proxyAccount) {
+			Process-ProxyAccount $config.proxyAccount $jobServer
+		}
+		else
+		{
+			Write-Host "Unable to determine config object type"
+		}
 
-			$jobCategory.Description = $config.Description
+		if (!$TransactionsByObject) {
+			Write-Debug "Committing transaction"
+			$jobServer.Parent.ConnectionContext.CommitTransaction()
 		}
 	}
 	catch [System.Exception] {
@@ -690,23 +673,7 @@ function Process-JobCategory(
 		while ($e.InnerException -and !$e.Message) { $e = $e.InnerException }
 		Write-Host $e.Message
 	}
-}
 
-function Process-File(
-	[string]$filename,
-	[Microsoft.SqlServer.Management.Smo.Server]$server)
-{
-	Write-Host "Processing file $($filename)"   
-	[xml]$config = Get-Content $filename
-	Write-Debug "JobConfig:`n----------START----------`n$($config.OuterXml)`n-----------END-----------"
-
-	If ($config.job -ne $null) {
-		Process-Job $config.job $server
-	}
-	else
-	{
-		Write-Host "Unable to determine config object type"
-	}
 }
 
 function Check-File(
@@ -739,6 +706,8 @@ function Deploy-SQLAgent()
 	if (!$SkipFileCheck) {
 		Write-Host "Checking files"
 		$FileCheckResults = Get-ChildItem -Path $ConfigDir -Filter Job*.xml | ForEach-Object { Check-File $_ "Job" }
+		$FileCheckResults = Get-ChildItem -Path $ConfigDir -Filter ProxyAccount*.xml | ForEach-Object { Check-File $_ "ProxyAccount" }
+		$FileCheckResults = Get-ChildItem -Path $ConfigDir -Filter JobCategory*.xml | ForEach-Object { Check-File $_ "JobCategory" }
 	}
 	else {
 		Write-Host "Skipping file check"
@@ -747,9 +716,36 @@ function Deploy-SQLAgent()
 
 	if (!($FileCheckResults | Where-Object { $_ -eq $false })) {
 		Write-Host "All files passed checks"
-		$server = New-Object Microsoft.SqlServer.Management.Smo.Server($serverName)
 
-		Get-ChildItem -Filter Job*.xml | ForEach-Object { Process-File $_ $server }
+		try {
+			Write-Debug "Getting server"
+			$server = New-Object Microsoft.SqlServer.Management.Smo.Server($serverName)
+
+			Write-Debug "Getting jobServer"
+			$jobServer = $server.JobServer
+			if ($TransactionsByObject) {
+				Write-Debug "Beginning transaction"
+				$server.ConnectionContext.BeginTransaction()
+			}
+
+			Get-ChildItem -Filter ProxyAccount*.xml | ForEach-Object { Process-File $_ $jobServer }
+			Get-ChildItem -Filter JobCategory*.xml | ForEach-Object { Process-File $_ $jobServer }
+			Get-ChildItem -Filter Job*.xml | ForEach-Object { Process-File $_ $jobServer }
+
+			if ($TransactionsByObject) {
+				Write-Debug "Committing transaction"
+				$server.ConnectionContext.CommitTransaction()
+			}
+		}
+		catch [System.Exception] {
+			Write-Host "Rolling back transaction"
+			$server.ConnectionContext.RollBackTransaction()
+			$e = $_.Exception
+			while ($e.InnerException -and !$e.Message) { $e = $e.InnerException }
+			Write-Host $e.Message
+			Write-Host $e.StackTrace
+		}
+
 	}
 	else {
 		Write-Host "Error(s) found in file(s)"

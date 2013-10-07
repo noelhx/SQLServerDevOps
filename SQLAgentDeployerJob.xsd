@@ -82,6 +82,8 @@
 
 			<xs:attribute name="name" type="xs:string" use="required" />
 
+			<xs:attribute name="category" type="xs:string" />
+
 			<xs:attribute name="ownerLoginName" type="xs:string" use="required" />
 
 			<xs:attribute name="startStepID" type="xs:nonNegativeInteger" use="required" />
